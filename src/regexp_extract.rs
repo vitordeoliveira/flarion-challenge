@@ -94,7 +94,7 @@ impl ScalarUDFImpl for RegexpExtract {
             _ => {
                 return Err(datafusion_common::DataFusionError::Internal(
                     "Expected a single Int64 for the index".to_string(),
-                ))
+                ));
             }
         };
 
@@ -113,7 +113,7 @@ impl ScalarUDFImpl for RegexpExtract {
                     return Err(datafusion_common::DataFusionError::Execution(format!(
                         "Error compiling regex: {}",
                         e
-                    )))
+                    )));
                 }
             };
 
@@ -135,8 +135,8 @@ impl ScalarUDFImpl for RegexpExtract {
 mod tests {
     use super::*;
     use arrow_array::StringArray;
-    use datafusion_common::arrow::datatypes::Field;
     use datafusion_common::ScalarValue;
+    use datafusion_common::arrow::datatypes::Field;
     use datafusion_expr::ColumnarValue;
     use std::sync::Arc;
 

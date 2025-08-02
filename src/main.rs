@@ -1,36 +1,82 @@
+//! An example program that demonstrates the `regexp_extract` User Defined Function.
 
-use datafusion::prelude::*;
-use regexp_extract_datafusion::regexp_extract::RegexpExtract;
-use datafusion_expr::ScalarUDF;
-use arrow_array::{ArrayRef, RecordBatch, StringArray};
+use datafusion::arrow::array::StringArray;
+use datafusion::arrow::datatypes::{DataType, Field, Schema};
+use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::datasource::MemTable;
+use datafusion::prelude::*;
+use datafusion_expr::ScalarUDF;
+use regexp_extract_datafusion::regexp_extract::RegexpExtract;
 use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> datafusion::error::Result<()> {
-    // Create a new SessionContext
+    println!("--- DataFusion `regexp_extract` UDF Demo ---");
+
+    // 1. Create a SessionContext
     let ctx = SessionContext::new();
 
-    // Register the UDF
-    ctx.register_udf(ScalarUDF::from(RegexpExtract::new()));
+    // 2. Create and register the User Defined Function
+    let udf = ScalarUDF::new_from_impl(RegexpExtract::new());
+    ctx.register_udf(udf.clone());
 
-    // Create a RecordBatch
-    let batch = RecordBatch::try_from_iter(vec![(
-        "text",
-        Arc::new(StringArray::from(vec!["100-200", "300-400"])) as ArrayRef,
-    )])?;
+    // 3. Create a MemTable with some sample data
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "http_log",
+        DataType::Utf8,
+        false,
+    )]));
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(StringArray::from(vec![
+            "1.2.3.4 - GET /index.html 200",
+            "5.6.7.8 - POST /api/data 404",
+            "9.10.11.12 - GET /static/image.png 304",
+            "No match here",
+        ]))],
+    )
+    .unwrap();
+    let provider = MemTable::try_new(schema, vec![vec![data]]).unwrap();
+    ctx.register_table("logs", Arc::new(provider)).unwrap();
 
-    // Create a MemTable
-    let table_provider = MemTable::try_new(batch.schema(), vec![vec![batch]])?;
-    ctx.register_table("my_table", Arc::new(table_provider))?;
+    // --- Demo 1: Using the SQL Interface ---
+    println!("\n--- 1. SQL API Demo ---");
+    println!("Extracting IP addresses, HTTP methods, and status codes from a log string.");
 
-    // Execute a query using the UDF
-    let df_result = ctx
-        .sql("SELECT regexp_extract(text, '(\\d+)-(\\d+)', 1) as extracted FROM my_table")
+    let df_sql = ctx
+        .sql(
+            r#"
+        SELECT
+            http_log,
+            regexp_extract(http_log, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 1) AS ip_address,
+            regexp_extract(http_log, ' - ([A-Z]+) ', 1) AS http_method,
+            regexp_extract(http_log, ' (\\d{3})$', 1) AS status_code
+        FROM logs
+        "#,
+        )
         .await?;
 
-    // Print the results
-    df_result.show().await?;
+    df_sql.show().await?;
 
+    // --- Demo 2: Using the DataFrame API ---
+    println!("\n--- 2. DataFrame API Demo ---");
+    println!("Extracting the path from the URL.");
+
+    let df_api = ctx
+        .table("logs")
+        .await?
+        .select(vec![
+            col("http_log"),
+            udf.call(vec![
+                col("http_log"),
+                lit(r#" - [A-Z]+ (/[^ ]*)"#),
+                lit(1_i64),
+            ])
+            .alias("path"),
+        ])?;
+
+    df_api.show().await?;
+
+    println!("\nDemo complete.");
     Ok(())
 }

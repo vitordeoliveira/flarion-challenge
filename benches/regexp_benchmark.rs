@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use datafusion::arrow::array::StringArray;
 use datafusion::arrow::datatypes::{DataType, Field, Schema};
 use datafusion::arrow::record_batch::RecordBatch;
@@ -9,21 +9,14 @@ use std::sync::Arc;
 use tokio::runtime::Runtime;
 
 fn create_test_df(ctx: &SessionContext, num_rows: usize) -> DataFrame {
-    let schema = Arc::new(Schema::new(vec![Field::new(
-        "text",
-        DataType::Utf8,
-        false,
-    )]));
+    let schema = Arc::new(Schema::new(vec![Field::new("text", DataType::Utf8, false)]));
 
     let data = (0..num_rows)
         .map(|i| format!("user-agent-{}", i))
         .collect::<Vec<_>>();
 
-    let batch = RecordBatch::try_new(
-        schema.clone(),
-        vec![Arc::new(StringArray::from(data))],
-    )
-    .unwrap();
+    let batch =
+        RecordBatch::try_new(schema.clone(), vec![Arc::new(StringArray::from(data))]).unwrap();
 
     ctx.read_batch(batch).unwrap()
 }

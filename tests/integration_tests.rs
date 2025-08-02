@@ -1,8 +1,8 @@
-use datafusion::prelude::*;
 use datafusion::arrow::array::StringArray;
 use datafusion::arrow::datatypes::{DataType, Field, Schema};
 use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::datasource::MemTable;
+use datafusion::prelude::*;
 use datafusion_expr::ScalarUDF;
 use regexp_extract_datafusion::regexp_extract::RegexpExtract;
 use std::sync::Arc;
@@ -25,10 +25,7 @@ async fn test_regexp_extract_integration() {
         schema.clone(),
         vec![
             Arc::new(StringArray::from(vec![
-                "100-200",
-                "300-400",
-                "no-match",
-                "500-600",
+                "100-200", "300-400", "no-match", "500-600",
             ])),
             Arc::new(StringArray::from(vec![
                 r"(\d+)-(\d+)",
@@ -66,7 +63,10 @@ async fn test_regexp_extract_integration() {
         Some("500"),
     ]);
 
-    assert_eq!(string_array, &expected, "The extracted values did not match the expected output.");
+    assert_eq!(
+        string_array, &expected,
+        "The extracted values did not match the expected output."
+    );
 }
 
 #[tokio::test]
@@ -77,11 +77,7 @@ async fn test_regexp_extract_dataframe_api() {
     ctx.register_udf(udf.clone());
 
     // 2. Create a RecordBatch
-    let schema = Arc::new(Schema::new(vec![Field::new(
-        "text",
-        DataType::Utf8,
-        false,
-    )]));
+    let schema = Arc::new(Schema::new(vec![Field::new("text", DataType::Utf8, false)]));
     let batch = RecordBatch::try_new(
         schema.clone(),
         vec![Arc::new(StringArray::from(vec![
@@ -111,4 +107,4 @@ async fn test_regexp_extract_dataframe_api() {
 
     let expected = StringArray::from(vec![Some("10"), Some("20"), Some("30")]);
     assert_eq!(string_array, &expected);
-} 
+}
