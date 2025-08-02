@@ -1,14 +1,15 @@
 # Regexp Extract DataFusion Implementation
 
-Implementation of Spark's `regexp_extract` function for Apache DataFusion.
+Implementation of Spark's `regexp_extract` function for Apache DataFusion, built as a User Defined Function (UDF).
 
 ## Project Status
 
-✅ **Phase 1 Complete**: Project Setup & Environment
+- ✅ **Phase 1: Project Setup**: Complete
+- ✅ **Phase 2: Research**: Complete
+- ✅ **Phase 3: Implementation**: Complete
+- ✅ **Phase 4: Comprehensive Testing**: Complete
 
-- [x] Rust environment verified (v1.87.0)
-- [x] Project structure created
-- [x] Dependencies configured and verified
+The core function is implemented, robustly tested, and benchmarked.
 
 ## Project Structure
 
@@ -16,20 +17,23 @@ Implementation of Spark's `regexp_extract` function for Apache DataFusion.
 regexp_extract_datafusion/
 ├── Cargo.toml              # Project dependencies and metadata
 ├── README.md               # This file
+├── benches/
+│   └── regexp_benchmark.rs  # Performance benchmarks
 ├── src/
-│   ├── main.rs            # Main entry point
+│   ├── main.rs            # Main entry point for live demos
 │   ├── lib.rs             # Library exports
-│   └── regexp_extract.rs  # Core implementation (TODO)
+│   └── regexp_extract.rs  # Core `regexp_extract` implementation
 └── tests/
-    └── integration_tests.rs # Integration tests (TODO)
+    └── integration_tests.rs # SQL and DataFrame API integration tests
 ```
 
 ## Dependencies
 
-- **DataFusion 49.0.0**: Query engine for implementing the UDF
-- **Arrow 56.0.0**: Columnar in-memory analytics
-- **Regex 1.10**: Regular expression matching
-- **Tokio 1.0**: Async runtime
+- **DataFusion 49.0.0**: Query engine for implementing the UDF.
+- **Arrow 55.2.0**: Columnar in-memory analytics.
+- **Regex 1.10**: Core regular expression matching.
+- **Tokio 1.0**: Asynchronous runtime.
+- **Criterion 0.5**: Performance benchmarking.
 
 ## Development Tools (via Nix Flake)
 
@@ -45,17 +49,15 @@ regexp_extract_datafusion/
 
 Implement Spark's `regexp_extract(str, pattern, idx)` function as a User Defined Function (UDF) in DataFusion that:
 
-- Takes a string, regex pattern, and group index as parameters
-- Returns the specified capture group from the regex match
-- Handles edge cases (invalid regex, missing groups, null inputs)
-- Provides equivalent functionality to Spark's implementation
+- Takes a string, regex pattern, and group index as parameters.
+- Returns the specified capture group from the regex match.
+- Handles edge cases (invalid regex, missing groups, null inputs) correctly.
+- Provides equivalent functionality to Spark's implementation.
 
 ## Next Steps
 
-- [ ] Phase 2: Research DataFusion UDF system and Spark behavior
-- [ ] Phase 3: Implement the core function logic
-- [ ] Phase 4: Comprehensive testing
-- [ ] Phase 5: Performance optimization and documentation
+- [ ] **Phase 5**: Advanced Features & Polish (performance tuning, documentation).
+- [ ] **Phase 6**: Spark GroupBy Analysis.
 
 ## Quick Start
 
@@ -68,23 +70,20 @@ nix develop
 # Verify tools are available
 rustc --version
 cargo --version
-cargo clippy --version
-cargo machete --version
 ```
 
 ### Manual Setup
 
 ```bash
-# Verify setup
+# Navigate to project directory
 cd regexp_extract_datafusion
+
+# Check to ensure dependencies resolve
 cargo check
 
-# Run tests (when implemented)
+# Run the unit and integration tests
 cargo test
+
+# Run the performance benchmarks
+cargo bench
 ```
-
-## Build Info
-
-- **Rust Version**: 1.87.0
-- **Target**: Native compilation
-- **Dependencies**: Successfully resolved and compiled
