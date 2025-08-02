@@ -48,9 +48,9 @@ async fn main() -> datafusion::error::Result<()> {
             r#"
         SELECT
             http_log,
-            regexp_extract(http_log, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 1) AS ip_address,
+            regexp_extract(http_log, '(\d+\.\d+\.\d+\.\d+)', 0) AS ip_address,
             regexp_extract(http_log, ' - ([A-Z]+) ', 1) AS http_method,
-            regexp_extract(http_log, ' (\\d{3})$', 1) AS status_code
+            regexp_extract(http_log, ' (\d{3})$', 0) AS status_code
         FROM logs
         "#,
         )
@@ -62,18 +62,15 @@ async fn main() -> datafusion::error::Result<()> {
     println!("\n--- 2. DataFrame API Demo ---");
     println!("Extracting the path from the URL.");
 
-    let df_api = ctx
-        .table("logs")
-        .await?
-        .select(vec![
+    let df_api = ctx.table("logs").await?.select(vec![
+        col("http_log"),
+        udf.call(vec![
             col("http_log"),
-            udf.call(vec![
-                col("http_log"),
-                lit(r#" - [A-Z]+ (/[^ ]*)"#),
-                lit(1_i64),
-            ])
-            .alias("path"),
-        ])?;
+            lit(r#" - [A-Z]+ (/[^ ]*)"#),
+            lit(1_i64),
+        ])
+        .alias("path"),
+    ])?;
 
     df_api.show().await?;
 
