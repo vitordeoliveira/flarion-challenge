@@ -2,7 +2,7 @@ use std::any::Any;
 use std::sync::Arc;
 
 use arrow_array::builder::StringBuilder;
-use arrow_array::{Array, ArrayRef, OffsetSizeTrait, StringArray};
+use arrow_array::{Array, ArrayRef, StringArray};
 use datafusion_common::arrow::datatypes::DataType;
 use datafusion_common::{Result, ScalarValue};
 use datafusion_expr::{ColumnarValue, ScalarFunctionArgs, ScalarUDFImpl, Signature, Volatility};
@@ -134,41 +134,163 @@ impl ScalarUDFImpl for RegexpExtract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arrow_array::{ArrayRef, StringArray};
+    use arrow_array::StringArray;
     use datafusion_common::arrow::datatypes::Field;
     use datafusion_common::ScalarValue;
     use datafusion_expr::ColumnarValue;
     use std::sync::Arc;
 
-    #[test]
-    fn test_regexp_extract_basic() {
+    // Helper to run a test and assert the output
+    fn run_test(
+        input: ColumnarValue,
+        pattern: ColumnarValue,
+        index: ColumnarValue,
+        expected_values: Vec<Option<&str>>,
+        num_rows: usize,
+    ) {
         let args = ScalarFunctionArgs {
-            args: vec![
-                ColumnarValue::Array(Arc::new(StringArray::from(vec![
-                    "100-200", "300-400", "500-600",
-                ]))),
-                ColumnarValue::Array(Arc::new(StringArray::from(vec![
-                    r"(\d+)-(\d+)",
-                    r"(\d+)-(\d+)",
-                    r"(\d+)-(\d+)",
-                ]))),
-                ColumnarValue::Scalar(ScalarValue::Int64(Some(1))),
-            ],
-            number_rows: 3,
-            arg_fields: vec![],
+            args: vec![input, pattern, index],
+            number_rows: num_rows,
+            arg_fields: vec![], // Not used in this UDF
             return_field: Arc::new(Field::new("result", DataType::Utf8, true)),
         };
 
         let result = RegexpExtract::new().invoke_with_args(args).unwrap();
 
+        let expected = StringArray::from(expected_values);
+
         match result {
             ColumnarValue::Array(array) => {
                 let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
-                assert_eq!(string_array.value(0), "100");
-                assert_eq!(string_array.value(1), "300");
-                assert_eq!(string_array.value(2), "500");
+                assert_eq!(string_array, &expected);
             }
-            _ => panic!("Expected an array"),
+            _ => panic!("Expected an array result"),
         }
+    }
+
+    // Helper to run a test that is expected to fail
+    fn run_test_error(
+        input: ColumnarValue,
+        pattern: ColumnarValue,
+        index: ColumnarValue,
+        num_rows: usize,
+        expected_error_msg: &str,
+    ) {
+        let args = ScalarFunctionArgs {
+            args: vec![input, pattern, index],
+            number_rows: num_rows,
+            arg_fields: vec![],
+            return_field: Arc::new(Field::new("result", DataType::Utf8, true)),
+        };
+
+        let result = RegexpExtract::new().invoke_with_args(args);
+        match result {
+            Ok(_) => panic!("Expected an error but got Ok"),
+            Err(e) => {
+                assert!(
+                    e.to_string().contains(expected_error_msg),
+                    "Error message '{}' did not contain expected substring '{}'",
+                    e,
+                    expected_error_msg
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_regexp_extract_basic() {
+        run_test(
+            ColumnarValue::Array(Arc::new(StringArray::from(vec![
+                "100-200", "300-400", "500-600",
+            ]))),
+            ColumnarValue::Scalar(ScalarValue::from(r"(\d+)-(\d+)")),
+            ColumnarValue::Scalar(ScalarValue::Int64(Some(1))),
+            vec![Some("100"), Some("300"), Some("500")],
+            3,
+        );
+    }
+
+    #[test]
+    fn test_no_match() {
+        run_test(
+            ColumnarValue::Array(Arc::new(StringArray::from(vec!["abc", "def-ghi"]))),
+            ColumnarValue::Scalar(ScalarValue::from(r"(\d+)")),
+            ColumnarValue::Scalar(ScalarValue::Int64(Some(1))),
+            vec![Some(""), Some("")],
+            2,
+        );
+    }
+
+    #[test]
+    fn test_group_index_out_of_bounds() {
+        run_test(
+            ColumnarValue::Array(Arc::new(StringArray::from(vec!["100-200"]))),
+            ColumnarValue::Scalar(ScalarValue::from(r"(\d+)-(\d+)")), // 2 capture groups
+            ColumnarValue::Scalar(ScalarValue::Int64(Some(3))),       // Requesting 3rd group
+            vec![Some("")],
+            1,
+        );
+    }
+
+    #[test]
+    fn test_null_input_string() {
+        run_test(
+            ColumnarValue::Array(Arc::new(StringArray::from(vec![
+                Some("100-200"),
+                None,
+                Some("500-600"),
+            ]))),
+            ColumnarValue::Scalar(ScalarValue::from(r"(\d+)-(\d+)")),
+            ColumnarValue::Scalar(ScalarValue::Int64(Some(1))),
+            vec![Some("100"), None, Some("500")],
+            3,
+        );
+    }
+
+    #[test]
+    fn test_group_zero_for_full_match() {
+        run_test(
+            ColumnarValue::Array(Arc::new(StringArray::from(vec!["foo-bar", "baz-qux"]))),
+            ColumnarValue::Scalar(ScalarValue::from(r"([a-z]+)-([a-z]+)")),
+            ColumnarValue::Scalar(ScalarValue::Int64(Some(0))), // Group 0 for the whole match
+            vec![Some("foo-bar"), Some("baz-qux")],
+            2,
+        );
+    }
+
+    #[test]
+    fn test_scalar_input_string_with_array_pattern() {
+        run_test(
+            ColumnarValue::Scalar(ScalarValue::from("data-fusion")),
+            ColumnarValue::Array(Arc::new(StringArray::from(vec![
+                r"([a-z]+)-",
+                r"-([a-z]+)",
+            ]))),
+            ColumnarValue::Scalar(ScalarValue::Int64(Some(1))),
+            vec![Some("data"), Some("fusion")],
+            2,
+        );
+    }
+
+    #[test]
+    fn test_invalid_regex_pattern() {
+        run_test_error(
+            ColumnarValue::Array(Arc::new(StringArray::from(vec!["a"]))),
+            ColumnarValue::Scalar(ScalarValue::from("[invalid-regex")),
+            ColumnarValue::Scalar(ScalarValue::Int64(Some(1))),
+            1,
+            "Error compiling regex",
+        );
+    }
+
+    #[test]
+    fn test_unicode_characters() {
+        run_test(
+            ColumnarValue::Array(Arc::new(StringArray::from(vec!["Gö-del", "你好-世界"]))),
+            ColumnarValue::Scalar(ScalarValue::from(r"(.+)-(.+)")),
+            ColumnarValue::Scalar(ScalarValue::Int64(Some(2))),
+            vec![Some("del"), Some("世界")],
+            2,
+        );
     }
 }
