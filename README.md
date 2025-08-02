@@ -8,8 +8,9 @@ Implementation of Spark's `regexp_extract` function for Apache DataFusion, built
 - ✅ **Phase 2: Research**: Complete
 - ✅ **Phase 3: Implementation**: Complete
 - ✅ **Phase 4: Comprehensive Testing**: Complete
+- 🚀 **Phase 6: Spark GroupBy Analysis**: In Progress
 
-The core function is implemented, robustly tested, and benchmarked.
+The core function is implemented, robustly tested, and benchmarked. Phase 5 (Advanced Features & Polish) has been skipped to focus on comparative analysis.
 
 ## Project Structure
 
@@ -56,8 +57,7 @@ Implement Spark's `regexp_extract(str, pattern, idx)` function as a User Defined
 
 ## Next Steps
 
-- [ ] **Phase 5**: Advanced Features & Polish (performance tuning, documentation).
-- [ ] **Phase 6**: Spark GroupBy Analysis.
+The implementation is complete and ready for comparative analysis with Spark's GroupBy performance.
 
 ## Quick Start
 
