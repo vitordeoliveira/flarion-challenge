@@ -186,7 +186,6 @@ mod tests {
     use datafusion_expr::ColumnarValue;
     use std::sync::Arc;
 
-    // Helper to run a test and assert the output
     fn run_test(
         input: ColumnarValue,
         pattern: ColumnarValue,
