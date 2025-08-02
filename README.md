@@ -59,13 +59,6 @@ Implement Spark's `regexp_extract(str, pattern, idx)` function as a User Defined
 
 The project is complete. All implementation, testing, and analysis goals have been successfully met.
 
-## Project Demo
-
-<video controls>
-  <source src="my_video.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
-
 ## Quick Start
 
 ### Using Nix Flake (Recommended)
