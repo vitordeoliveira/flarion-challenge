@@ -32,7 +32,7 @@
             echo "  rust-analyzer --version"
             echo "  cargo clippy --version"
             echo "  cargo machete --version"
-            echo "  cargo edit --version"
+            # echo "  cargo edit --version"
           '';
         };
       });
