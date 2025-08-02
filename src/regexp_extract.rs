@@ -130,14 +130,12 @@ impl ScalarUDFImpl for RegexpExtract {
                 continue;
             }
 
-            // --- Step 7a: Get Row-Specific Values ---
             // For our example row (i=0):
             // input_val -> "1.2.3.4 - GET /index.html 200"
             // pattern   -> "(\\d+\\.\\d+\\.\\d+\\.\\d+)"
             let input_val = input_array.value(i);
             let pattern = pattern_array.value(i);
 
-            // --- Step 7b: Compile Regex ---
             let compiled_regex = match Regex::new(pattern) {
                 Ok(re) => re,
                 Err(e) => {
@@ -147,7 +145,6 @@ impl ScalarUDFImpl for RegexpExtract {
                 }
             };
 
-            // --- Step 7c: Execute Regex and Append Result ---
             if let Some(captures) = compiled_regex.captures(input_val) {
                 // The pattern matches "1.2.3.4".
                 // captures[0] -> "1.2.3.4" (the full match)
