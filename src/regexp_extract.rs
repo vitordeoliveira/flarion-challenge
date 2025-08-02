@@ -111,8 +111,7 @@ impl ScalarUDFImpl for RegexpExtract {
                 Ok(re) => re,
                 Err(e) => {
                     return Err(datafusion_common::DataFusionError::Execution(format!(
-                        "Error compiling regex: {}",
-                        e
+                        "Error compiling regex: {e}"
                     )));
                 }
             };
@@ -189,9 +188,7 @@ mod tests {
             Err(e) => {
                 assert!(
                     e.to_string().contains(expected_error_msg),
-                    "Error message '{}' did not contain expected substring '{}'",
-                    e,
-                    expected_error_msg
+                    "Error message '{e}' did not contain expected substring '{expected_error_msg}'"
                 );
             }
         }
