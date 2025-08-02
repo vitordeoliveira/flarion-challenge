@@ -15,8 +15,8 @@ fn extract_input_and_pattern(
 ) -> Result<(ArrayRef, ArrayRef)> {
     // looks like we need to check the first argument to check if
     // it is a scalar because
-    // of the case SELECT regexp_extract('100-200', '(\\d+)', 1) FROM my_table;
-    // in this case optimer will convert the first option to a scalar
+    // of the case SELECT regexp_extract('2023-12-25', '(\\d{4})-(\\d{2})-(\\d{2})', 1) FROM my_table;
+    // in this case optimizer will convert the first option to a scalar
     let input_array = match arg1 {
         ColumnarValue::Array(array) => array.clone(),
         ColumnarValue::Scalar(scalar) => scalar.to_array_of_size(num_rows)?,
@@ -69,26 +69,26 @@ impl ScalarUDFImpl for RegexpExtract {
 
     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
         // --- Step 1: Get Batch Size ---
-        // Let's trace a query: SELECT regexp_extract(http_log, '(\\d+\\.\\d+\\.\\d+\\.\\d+)', 1) FROM logs
+        // Let's trace a query: SELECT regexp_extract(date_log, '(\\d{4})-(\\d{2})-(\\d{2})', 1) FROM events
         // If our current batch has 1 row, num_rows will be 1.
         let num_rows = args.number_rows;
 
         // --- Step 2: Get Raw Arguments ---
         // These are the inputs exactly as the engine provides them.
-        // http_log_col:  ColumnarValue::Array(["1.2.3.4 - GET /index.html 200"])
-        // pattern_col:   ColumnarValue::Scalar("(\\d+\\.\\d+\\.\\d+\\.\\d+)")
-        // idx_col:       ColumnarValue::Scalar(1)
-        let http_log_col = &args.args[0];
+        // input_col:    ColumnarValue::Array(["Event on 2023-12-25 was successful"])
+        // pattern_col:  ColumnarValue::Scalar("(\\d{4})-(\\d{2})-(\\d{2})")
+        // idx_col:      ColumnarValue::Scalar(1)
+        let input_col = &args.args[0];
         let pattern_col = &args.args[1];
         let idx_col = &args.args[2];
 
         // --- Step 3: Normalize Inputs to Arrays ---
         // Our helper function ensures everything is an array of `num_rows`.
         // Scalars are broadcast into arrays.
-        // input_array:   ["1.2.3.4 - GET /index.html 200"]
-        // pattern_array: ["(\\d+\\.\\d+\\.\\d+\\.\\d+)", "(\\d+\\.\\d+\\.\\d+\\.\\d+)", ...]
+        // input_array:   ["Event on 2023-12-25 was successful"]
+        // pattern_array: ["(\\d{4})-(\\d{2})-(\\d{2})", "(\\d{4})-(\\d{2})-(\\d{2})", ...]
         let (input_array, pattern_array) =
-            extract_input_and_pattern(http_log_col, pattern_col, num_rows)?;
+            extract_input_and_pattern(input_col, pattern_col, num_rows)?;
 
         // --- Step 4: Downcast to Specific Array Types ---
         // We convert the generic `ArrayRef` to the concrete `StringArray` we need.
@@ -131,8 +131,8 @@ impl ScalarUDFImpl for RegexpExtract {
             }
 
             // For our example row (i=0):
-            // input_val -> "1.2.3.4 - GET /index.html 200"
-            // pattern   -> "(\\d+\\.\\d+\\.\\d+\\.\\d+)"
+            // input_val -> "Event on 2023-12-25 was successful"
+            // pattern   -> "(\\d{4})-(\\d{2})-(\\d{2})"
             let input_val = input_array.value(i);
             let pattern = pattern_array.value(i);
 
@@ -146,11 +146,13 @@ impl ScalarUDFImpl for RegexpExtract {
             };
 
             if let Some(captures) = compiled_regex.captures(input_val) {
-                // The pattern matches "1.2.3.4".
-                // captures[0] -> "1.2.3.4" (the full match)
-                // captures[1] -> "1.2.3.4" (the first and only group)
+                // Example: pattern "(\d{4})-(\d{2})-(\d{2})" matches "2023-12-25"
+                // captures[0] -> "2023-12-25" (the full match)
+                // captures[1] -> "2023" (year - first group)
+                // captures[2] -> "12" (month - second group)
+                // captures[3] -> "25" (day - third group)
                 if idx < captures.len() as i64 {
-                    // Our index is 1, which is valid. We get the string "1.2.3.4".
+                    // Depending on idx: 1=year, 2=month, 3=day, or 0=full match
                     string_builder.append_value(captures.get(idx as usize).unwrap().as_str());
                 } else {
                     string_builder.append_value("");
@@ -162,7 +164,7 @@ impl ScalarUDFImpl for RegexpExtract {
 
         // --- Step 8: Finalize and Return Result Array ---
         // The builder is finalized into a new Arrow Array.
-        // For our example, this will be a StringArray containing ["1.2.3.4"].
+        // For our example, this will be a StringArray containing ["2023"] (the year).
         Ok(ColumnarValue::Array(Arc::new(string_builder.finish())))
     }
 }
