@@ -119,11 +119,19 @@ impl ScalarUDFImpl for RegexpExtract {
             }
         };
 
-        // --- Step 6: Prepare Output Builder ---
+        // --- Step 6: Validate Group Index ---
+        // Spark's regexp_extract requires a non-negative group index.
+        if idx < 0 {
+            return Err(datafusion_common::DataFusionError::Execution(
+                "Group index must be a non-negative integer.".to_string(),
+            ));
+        }
+
+        // --- Step 7: Prepare Output Builder ---
         // An Arrow builder for efficiently creating the output `StringArray`.
         let mut string_builder = StringBuilder::new();
 
-        // --- Step 7: Iterate and Process Each Row ---
+        // --- Step 8: Iterate and Process Each Row ---
         for i in 0..num_rows {
             if input_array.is_null(i) {
                 string_builder.append_null();
@@ -162,7 +170,7 @@ impl ScalarUDFImpl for RegexpExtract {
             }
         }
 
-        // --- Step 8: Finalize and Return Result Array ---
+        // --- Step 9: Finalize and Return Result Array ---
         // The builder is finalized into a new Arrow Array.
         // For our example, this will be a StringArray containing ["2023"] (the year).
         Ok(ColumnarValue::Array(Arc::new(string_builder.finish())))
@@ -338,6 +346,17 @@ mod tests {
             ColumnarValue::Scalar(ScalarValue::Int64(Some(2))), // Requesting group 2
             vec![Some("200"), Some("400")],
             2,
+        );
+    }
+
+    #[test]
+    fn test_negative_group_index() {
+        run_test_error(
+            ColumnarValue::Array(Arc::new(StringArray::from(vec!["a"]))),
+            ColumnarValue::Scalar(ScalarValue::from("a")),
+            ColumnarValue::Scalar(ScalarValue::Int64(Some(-1))),
+            1,
+            "Group index must be a non-negative integer.",
         );
     }
 }
