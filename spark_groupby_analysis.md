@@ -18,7 +18,7 @@ Spark chooses between two main physical strategies for aggregation. The choice i
 
 This is the most common and fastest strategy. It builds an in-memory hash map where the keys are the grouping columns and the values are the aggregation buffers (e.g., for `SUM`, `COUNT`).
 
-- **How it Works**: Data is read, and the hash map is updated in-memory. This is extremely fast but requires the hash map to fit in memory.
+- **How it Works**: Data is read, and the hash map is updated in-memory. This is extremely fast, but if the map grows too large, Spark can spill its contents to disk and continue processing, which prevents out-of-memory errors.
 - **Two-Phase Execution**: To handle large datasets, Spark uses a two-phase approach:
   1.  **Partial Aggregation**: Each executor computes a local, in-memory hash map for its partition of data. This dramatically reduces the amount of data that needs to be shuffled across the network.
   2.  **Final Aggregation**: The partial results from all partitions are shuffled to reducers, which merge them into a final hash map to produce the result.
@@ -33,6 +33,8 @@ This is a fallback strategy used when the grouping keys are already sorted or wh
 
 ## Summary of Code Pointers
 
-- **`WholeStageCodegenExec.scala`**: The core of Spark's performance. Compiles query stages into a single function.
-- **`HashAggregateExec.scala`**: The primary, high-performance strategy for `GROUP BY` operations.
-- **`SortAggregateExec.scala`**: The fallback strategy used when hash aggregation is not suitable.
+The key files listed below are located within the `spark/sql/core/src/main/scala/` directory.
+
+- **`org/apache/spark/sql/execution/WholeStageCodegenExec.scala`**: The core of Spark's performance. Compiles query stages into a single function.
+- **`org/apache/spark/sql/execution/aggregate/HashAggregateExec.scala`**: The primary, high-performance strategy for `GROUP BY` operations.
+- **`org/apache/spark/sql/execution/aggregate/SortAggregateExec.scala`**: The fallback strategy used when hash aggregation is not suitable.
