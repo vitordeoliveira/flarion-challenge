@@ -17,11 +17,11 @@ fn extract_input_and_pattern(
     // it is a scalar because
     // of the case SELECT regexp_extract('2023-12-25', '(\\d{4})-(\\d{2})-(\\d{2})', 1) FROM my_table;
     // in this case optimizer will convert the first option to a scalar
-    let input_array = match arg1 {
+    let input_array: ArrayRef = match arg1 {
         ColumnarValue::Array(array) => array.clone(),
         ColumnarValue::Scalar(scalar) => scalar.to_array_of_size(num_rows)?,
     };
-    let pattern_array = match arg2 {
+    let pattern_array: ArrayRef = match arg2 {
         ColumnarValue::Array(array) => array.clone(),
         ColumnarValue::Scalar(scalar) => scalar.to_array_of_size(num_rows)?,
     };
@@ -87,18 +87,18 @@ impl ScalarUDFImpl for RegexpExtract {
         // Scalars are broadcast into arrays.
         // input_array:   ["Event on 2023-12-25 was successful"]
         // pattern_array: ["(\\d{4})-(\\d{2})-(\\d{2})", "(\\d{4})-(\\d{2})-(\\d{2})", ...]
-        let (input_array, pattern_array) =
+        let (input_array_ref, pattern_array_ref): (ArrayRef, ArrayRef) =
             extract_input_and_pattern(input_col, pattern_col, num_rows)?;
 
         // --- Step 4: Downcast to Specific Array Types ---
         // We convert the generic `ArrayRef` to the concrete `StringArray` we need.
-        let input_array = input_array
+        let input_array: &StringArray = input_array_ref
             .as_any()
             .downcast_ref::<StringArray>()
             .ok_or_else(|| {
                 datafusion_common::DataFusionError::Internal("Expected a StringArray".to_string())
             })?;
-        let pattern_array = pattern_array
+        let pattern_array: &StringArray = pattern_array_ref
             .as_any()
             .downcast_ref::<StringArray>()
             .ok_or_else(|| {
@@ -110,7 +110,7 @@ impl ScalarUDFImpl for RegexpExtract {
         // --- Step 5: Extract Scalar Index ---
         // We get the single integer value for the group index.
         // idx -> 1
-        let idx = match idx_col {
+        let idx: i64 = match idx_col {
             ColumnarValue::Scalar(ScalarValue::Int64(Some(idx))) => *idx,
             _ => {
                 return Err(datafusion_common::DataFusionError::Internal(
@@ -129,7 +129,7 @@ impl ScalarUDFImpl for RegexpExtract {
 
         // --- Step 7: Prepare Output Builder ---
         // An Arrow builder for efficiently creating the output `StringArray`.
-        let mut string_builder = StringBuilder::new();
+        let mut string_builder: StringBuilder = StringBuilder::new();
 
         // --- Step 8: Iterate and Process Each Row ---
         for i in 0..num_rows {
@@ -141,10 +141,10 @@ impl ScalarUDFImpl for RegexpExtract {
             // For our example row (i=0):
             // input_val -> "Event on 2023-12-25 was successful"
             // pattern   -> "(\\d{4})-(\\d{2})-(\\d{2})"
-            let input_val = input_array.value(i);
-            let pattern = pattern_array.value(i);
+            let input_val: &str = input_array.value(i);
+            let pattern: &str = pattern_array.value(i);
 
-            let compiled_regex = match Regex::new(pattern) {
+            let compiled_regex: Regex = match Regex::new(pattern) {
                 Ok(re) => re,
                 Err(e) => {
                     return Err(datafusion_common::DataFusionError::Execution(format!(
