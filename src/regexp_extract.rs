@@ -153,20 +153,20 @@ impl ScalarUDFImpl for RegexpExtract {
                 }
             };
 
-            if let Some(captures) = compiled_regex.captures(input_val) {
-                // Example: pattern "(\d{4})-(\d{2})-(\d{2})" matches "2023-12-25"
-                // captures[0] -> "2023-12-25" (the full match)
-                // captures[1] -> "2023" (year - first group)
-                // captures[2] -> "12" (month - second group)
-                // captures[3] -> "25" (day - third group)
-                if idx < captures.len() as i64 {
+            match compiled_regex.captures(input_val) {
+                Some(captures) if idx < captures.len() as i64 => {
+                    // Example: pattern "(\d{4})-(\d{2})-(\d{2})" matches "2023-12-25"
+                    // captures[0] -> "2023-12-25" (the full match)
+                    // captures[1] -> "2023" (year - first group)
+                    // captures[2] -> "12" (month - second group)
+                    // captures[3] -> "25" (day - third group)
                     // Depending on idx: 1=year, 2=month, 3=day, or 0=full match
                     string_builder.append_value(captures.get(idx as usize).unwrap().as_str());
-                } else {
+                }
+                _ => {
+                    // Handle both: no regex match OR index out of bounds
                     string_builder.append_value("");
                 }
-            } else {
-                string_builder.append_value("");
             }
         }
 
