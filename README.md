@@ -76,7 +76,7 @@ cargo --version
 
 ```bash
 # Navigate to project directory
-cd regexp_extract_datafusion
+cd flarion-challenge #if you are not in the folder already
 
 # Check to ensure dependencies resolve
 cargo check
